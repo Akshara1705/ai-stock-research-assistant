@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { PriceHeader } from "@/components/stock/PriceHeader";
 import { OHLCGrid } from "@/components/stock/OHLCGrid";
@@ -18,6 +19,7 @@ export default function ResearchPage({
   params: Promise<{ ticker: string }>;
 }) {
   const { ticker } = use(params);
+  const router = useRouter();
   const [quote, setQuote] = useState<StockQuote | null>(null);
   const [chartData, setChartData] = useState<PriceHistoryPoint[]>([]);
   const [peers, setPeers] = useState<PeerData[]>([]);
@@ -109,7 +111,8 @@ export default function ResearchPage({
       });
       if (res.ok) {
         const data = await res.json();
-        window.location.href = `/memo/${data.id}`;
+        sessionStorage.setItem(`memo-${data.id}`, JSON.stringify(data));
+        router.push(`/memo/${data.id}`);
       }
     } catch {
       // memo generation failed silently

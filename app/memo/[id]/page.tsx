@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { MemoPreview } from "@/components/memo/MemoPreview";
 import { Spinner } from "@/components/ui/Spinner";
@@ -34,9 +35,17 @@ export default function MemoDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const isTempId = id.startsWith("temp-");
-
   useEffect(() => {
+    const stored = sessionStorage.getItem(`memo-${id}`);
+    if (stored) {
+      try {
+        setMemo(JSON.parse(stored));
+        sessionStorage.removeItem(`memo-${id}`);
+        setLoading(false);
+        fetch("/api/memo/" + id).catch(() => {});
+        return;
+      } catch {}
+    }
     fetchMemo();
   }, [id]);
 
@@ -46,10 +55,8 @@ export default function MemoDetailPage({
       if (res.ok) {
         const data = await res.json();
         setMemo(data);
-      } else if (isTempId) {
-        setError("temp");
       } else {
-        setError("not_found");
+        setError(id.startsWith("temp-") ? "temp" : "not_found");
       }
     } catch {
       setError("network");

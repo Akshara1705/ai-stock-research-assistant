@@ -49,7 +49,7 @@ export function Navbar() {
         </div>
       </form>
       <div className="hidden md:flex items-center gap-3 ml-auto">
-        <span className="text-[10px] text-blue-400 font-mono uppercase tracking-wider">
+        <span className="text-[10px] text-blue-300 font-mono uppercase tracking-wider bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
           {ticker}
         </span>
       </div>
