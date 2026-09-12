@@ -10,7 +10,7 @@ import { AnalysisResult } from "@/components/ai/AnalysisResult";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { StockQuote, PriceHistoryPoint, PeerData, AIAnalysis } from "@/types";
-import { Brain, BarChart3, Download, RefreshCw } from "lucide-react";
+import { Brain, BarChart3, Download, RefreshCw, FileText } from "lucide-react";
 
 export default function ResearchPage({
   params,
@@ -26,6 +26,7 @@ export default function ResearchPage({
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [generatingMemo, setGeneratingMemo] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "ai">("overview");
 
   useEffect(() => {
@@ -95,6 +96,25 @@ export default function ResearchPage({
       a.download = `${ticker}_research_report.txt`;
       a.click();
       URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleGenerateMemo = async () => {
+    setGeneratingMemo(true);
+    try {
+      const res = await fetch("/api/memo/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        window.location.href = `/memo/${data.id}`;
+      }
+    } catch {
+      // memo generation failed silently
+    } finally {
+      setGeneratingMemo(false);
     }
   };
 
@@ -168,7 +188,19 @@ export default function ResearchPage({
                   </div>
                 )}
                 {analysis ? (
-                  <AnalysisResult analysis={analysis} />
+                  <>
+                    <AnalysisResult analysis={analysis} />
+                    <div className="flex gap-2 pt-2">
+                      <Button onClick={handleGenerateMemo} disabled={generatingMemo}>
+                        <FileText className="w-3.5 h-3.5 mr-1.5" />
+                        {generatingMemo ? "Generating Memo..." : "Generate Investment Memo"}
+                      </Button>
+                      <Button variant="secondary" onClick={handleExport}>
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                        Download Report
+                      </Button>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-12 bg-[#111827] border border-[#1e293b] rounded-lg">
                     <Brain className="w-8 h-8 text-slate-600 mx-auto mb-3" />

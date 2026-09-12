@@ -18,12 +18,12 @@ import {
 } from "lucide-react";
 
 const MODULES = [
-  { href: "/research", label: "Stock Research", desc: "Deep-dive analysis", icon: Search, color: "text-blue-400" },
-  { href: "/debate", label: "AI Analyst Debate", desc: "Multi-perspective", icon: Swords, color: "text-purple-400" },
-  { href: "/valuation", label: "DCF Valuation", desc: "Intrinsic value", icon: TrendingUp, color: "text-emerald-400" },
-  { href: "/scanner", label: "Opportunity Scanner", desc: "AI-scored picks", icon: Crosshair, color: "text-amber-400" },
-  { href: "/earnings", label: "Earnings Intel", desc: "Calendar & surprises", icon: Calendar, color: "text-cyan-400" },
-  { href: "/memo", label: "Investment Memos", desc: "Generate reports", icon: FileText, color: "text-rose-400" },
+  { href: "/research", label: "Stock Research", desc: "Deep-dive analysis", icon: Search, color: "text-blue-400", needsTicker: true },
+  { href: "/debate", label: "AI Analyst Debate", desc: "Multi-perspective", icon: Swords, color: "text-purple-400", needsTicker: true },
+  { href: "/valuation", label: "DCF Valuation", desc: "Intrinsic value", icon: TrendingUp, color: "text-emerald-400", needsTicker: true },
+  { href: "/scanner", label: "Opportunity Scanner", desc: "AI-scored picks", icon: Crosshair, color: "text-amber-400", needsTicker: false },
+  { href: "/earnings", label: "Earnings Intel", desc: "Calendar & surprises", icon: Calendar, color: "text-cyan-400", needsTicker: false },
+  { href: "/memo", label: "Investment Memos", desc: "Generate reports", icon: FileText, color: "text-rose-400", needsTicker: false },
 ];
 
 const TICKERS = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "AMZN", "RELIANCE.NS", "TCS.NS", "INFY.NS"];
@@ -40,9 +40,9 @@ export default function DashboardPage() {
       .catch(() => setMemos([]));
   }, []);
 
-  const handleModuleClick = (href: string) => {
+  const handleModuleClick = (href: string, needsTicker: boolean) => {
     setTicker(ticker);
-    router.push(`${href}/${ticker}`);
+    router.push(needsTicker ? `${href}/${ticker}` : href);
   };
 
   return (
@@ -93,7 +93,7 @@ export default function DashboardPage() {
             return (
               <button
                 key={mod.href}
-                onClick={() => handleModuleClick(mod.href)}
+                onClick={() => handleModuleClick(mod.href, mod.needsTicker)}
                 className="bg-[#111827] border border-[#1e293b] rounded-lg p-3 hover:border-[#2d3748] hover:bg-[#151d2b] transition-all duration-150 cursor-pointer group text-left"
               >
                 <Icon className={`w-5 h-5 ${mod.color} mb-2 group-hover:scale-110 transition-transform`} />
