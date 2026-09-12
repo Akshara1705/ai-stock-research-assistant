@@ -20,6 +20,7 @@ interface Memo {
 export default function MemoListPage() {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMemos();
@@ -28,12 +29,14 @@ export default function MemoListPage() {
   const fetchMemos = async () => {
     try {
       const res = await fetch("/api/memo/list");
-      if (res.ok) {
-        const data = await res.json();
-        setMemos(data.memos || []);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to fetch memos");
       }
-    } catch {
-      // silently fail
+      const data = await res.json();
+      setMemos(data.memos || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load memos");
     } finally {
       setLoading(false);
     }
@@ -62,6 +65,13 @@ export default function MemoListPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-xs text-red-400 font-mono mb-3">{error}</p>
+            <button onClick={fetchMemos} className="text-blue-400 hover:text-blue-300 text-xs font-mono">
+              Try again
+            </button>
+          </div>
         ) : memos.length === 0 ? (
           <div className="text-center py-20">
             <FileText className="w-8 h-8 text-slate-600 mx-auto mb-3" />

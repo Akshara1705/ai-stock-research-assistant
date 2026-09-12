@@ -14,19 +14,23 @@ import { Crosshair, Radar } from "lucide-react";
 export default function ScannerPage() {
   const [opportunities, setOpportunities] = useState<OpportunityScore[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [scanned, setScanned] = useState(false);
 
   const handleScan = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/scanner?limit=15");
-      if (res.ok) {
-        const data = await res.json();
-        setOpportunities(data.results);
-        setScanned(true);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Scan failed");
       }
-    } catch {
-      // silently fail
+      const data = await res.json();
+      setOpportunities(data.results);
+      setScanned(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to scan market");
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,12 @@ export default function ScannerPage() {
           <Radar className="w-3.5 h-3.5 mr-1.5" />
           {loading ? "Scanning..." : scanned ? "Rescan Market" : "Scan Market"}
         </Button>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-xs text-red-400 font-mono">{error}</p>
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-center justify-center py-20">

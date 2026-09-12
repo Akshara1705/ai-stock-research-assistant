@@ -30,6 +30,7 @@ export default function MemoDetailPage({
   const [memo, setMemo] = useState<MemoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchMemo();
@@ -51,6 +52,21 @@ export default function MemoDetailPage({
     }
   };
 
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const { exportToPDF } = await import("@/lib/pdf-export");
+      const filename = memo?.title
+        ? `${memo.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`
+        : `memo_${id}.pdf`;
+      await exportToPDF("memo-content", filename);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto space-y-4">
@@ -62,7 +78,7 @@ export default function MemoDetailPage({
             <p className="text-red-400 text-xs font-mono">{error}</p>
           </div>
         ) : memo ? (
-          <MemoPreview memo={memo} />
+          <MemoPreview memo={memo} onExportPDF={handleExportPDF} exporting={exporting} />
         ) : null}
       </div>
     </AppShell>

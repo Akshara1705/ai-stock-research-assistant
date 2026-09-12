@@ -1,35 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStockQuoteWithFundamentals, getStockFinancials } from "@/lib/yahoo-finance";
+import { getQuote, getStockFinancials } from "@/lib/yahoo-finance";
 import { calculateDCF, getValuationSignal } from "@/lib/valuation";
+import { getPeersForTicker } from "@/lib/peers";
+import { checkRateLimit, getClientIp, validateTicker } from "@/lib/validation";
 import YahooFinance from "yahoo-finance2";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] } as never);
 
-const PEER_MAP: Record<string, string[]> = {
-  AAPL: ["MSFT", "GOOGL", "META"],
-  MSFT: ["AAPL", "GOOGL", "AMZN"],
-  GOOGL: ["META", "MSFT", "AAPL"],
-  GOOG: ["META", "MSFT", "AAPL"],
-  META: ["GOOGL", "SNAP", "PINS"],
-  AMZN: ["MSFT", "GOOGL", "WMT"],
-  TSLA: ["F", "GM", "RIVN"],
-  NVDA: ["AMD", "INTC", "QCOM"],
-  AMD: ["NVDA", "INTC", "QCOM"],
-  JPM: ["BAC", "GS", "MS"],
-  BAC: ["JPM", "WFC", "C"],
-  GS: ["MS", "JPM", "BAC"],
-  NFLX: ["DIS", "PARA", "WBD"],
-  "RELIANCE.NS": ["TCS.NS", "HDFCBANK.NS", "INFY.NS"],
-  "RELIANCE.BO": ["TCS.BO", "HDFCBANK.BO", "INFY.BO"],
-  "TCS.NS": ["INFY.NS", "WIPRO.NS", "HCLTECH.NS"],
-  "TCS.BO": ["INFY.BO", "WIPRO.BO", "HCLTECH.BO"],
-  "INFY.NS": ["TCS.NS", "WIPRO.NS", "HCLTECH.NS"],
-  "HDFCBANK.NS": ["ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS"],
-  "HDFCBANK.BO": ["ICICIBANK.BO", "KOTAKBANK.BO", "SBIN.BO"],
-};
-
 async function getRealPeers(ticker: string) {
-  const peerSymbols = PEER_MAP[ticker.toUpperCase()] || PEER_MAP[ticker] || [];
+  const peerSymbols = await getPeersForTicker(ticker);
   if (peerSymbols.length === 0) return [];
 
   const peers = [];
@@ -51,16 +30,25 @@ async function getRealPeers(ticker: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`valuation:${ip}`, 10, 60000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { ticker, assumptions } = body;
 
-    if (!ticker) {
+    if (!validateTicker(ticker)) {
       return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
     }
 
     const [quote, financials] = await Promise.all([
-      getStockQuoteWithFundamentals(ticker),
+      getQuote(ticker),
       getStockFinancials(ticker),
     ]);
 

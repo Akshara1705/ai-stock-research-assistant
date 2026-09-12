@@ -25,6 +25,7 @@ export default function ResearchPage({
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "ai">("overview");
 
   useEffect(() => {
@@ -59,19 +60,22 @@ export default function ResearchPage({
 
   const handleAnalyze = async () => {
     setAnalyzing(true);
+    setAiError(null);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticker, quote, currency: quote?.currency }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysis(data);
-        setActiveTab("ai");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Analysis failed");
       }
-    } catch {
-      // silently fail
+      const data = await res.json();
+      setAnalysis(data);
+      setActiveTab("ai");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Failed to generate analysis");
     } finally {
       setAnalyzing(false);
     }
@@ -158,6 +162,11 @@ export default function ResearchPage({
               </div>
             ) : (
               <div className="space-y-4">
+                {aiError && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p className="text-xs text-red-400 font-mono">{aiError}</p>
+                  </div>
+                )}
                 {analysis ? (
                   <AnalysisResult analysis={analysis} />
                 ) : (

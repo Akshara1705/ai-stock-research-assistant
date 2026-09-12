@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDebate } from "@/lib/gemini";
-import { getStockQuoteWithFundamentals } from "@/lib/yahoo-finance";
+import { getQuote } from "@/lib/yahoo-finance";
+import { checkRateLimit, getClientIp, validateTicker } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`debate:${ip}`, 5, 60000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { ticker, personas } = body;
 
-    if (!ticker) {
+    if (!validateTicker(ticker)) {
       return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
     }
 
-    const quote = await getStockQuoteWithFundamentals(ticker);
+    const quote = await getQuote(ticker);
     const stockData = {
       ...quote,
       ticker: ticker.toUpperCase(),

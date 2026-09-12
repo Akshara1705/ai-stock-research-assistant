@@ -25,23 +25,27 @@ export default function DebatePage({
     synthesizedView: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>(Object.keys(PERSONAS));
 
   const handleDebate = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/debate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticker, personas: selectedPersonas }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setPersonas(data.personas);
-        setConsensus(data.consensus);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Debate failed");
       }
-    } catch {
-      // silently fail
+      const data = await res.json();
+      setPersonas(data.personas);
+      setConsensus(data.consensus);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate debate");
     } finally {
       setLoading(false);
     }
@@ -86,6 +90,12 @@ export default function DebatePage({
           <Users className="w-3.5 h-3.5 mr-1.5" />
           {loading ? "Debating..." : `Start Debate (${selectedPersonas.length})`}
         </Button>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-xs text-red-400 font-mono">{error}</p>
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-center justify-center py-20">

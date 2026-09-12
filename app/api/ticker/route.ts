@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { checkRateLimit, getClientIp, sanitizeString } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`ticker:${ip}`, 10, 60000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)) } }
+    );
+  }
+
   const body = await request.json();
-  const { companyName } = body;
+  const companyName = sanitizeString(body?.companyName, 200);
 
   if (!companyName) {
     return NextResponse.json({ error: "Company name required" }, { status: 400 });

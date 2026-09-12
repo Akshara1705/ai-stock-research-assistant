@@ -37,7 +37,7 @@ export default function DashboardPage() {
     fetch("/api/memo/list")
       .then((r) => r.json())
       .then((d) => setMemos(d.memos || []))
-      .catch(() => {});
+      .catch(() => setMemos([]));
   }, []);
 
   const handleModuleClick = (href: string) => {

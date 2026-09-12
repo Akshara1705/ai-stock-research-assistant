@@ -36,7 +36,7 @@ export function MemoPreview({ memo, onExportPDF, exporting }: MemoPreviewProps) 
   };
 
   return (
-    <div className="space-y-4">
+    <div id="memo-content" className="space-y-4">
       <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="py-4">
           <div className="flex items-start justify-between">

@@ -3,7 +3,7 @@ import { StockQuote, PriceHistoryPoint, PeerData } from "@/types";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] } as never);
 
-export async function getStockQuote(ticker: string): Promise<StockQuote> {
+export async function getQuote(ticker: string): Promise<StockQuote> {
   const quote = await yf.quote(ticker);
   return {
     symbol: quote.symbol || ticker,
@@ -30,10 +30,9 @@ export async function getStockQuote(ticker: string): Promise<StockQuote> {
   };
 }
 
-export async function getStockQuoteWithFundamentals(
-  ticker: string
-): Promise<StockQuote> {
-  return getStockQuote(ticker);
+export async function getRawQuote(ticker: string): Promise<Record<string, unknown>> {
+  const quote = await yf.quote(ticker);
+  return quote as unknown as Record<string, unknown>;
 }
 
 export async function getPriceHistory(

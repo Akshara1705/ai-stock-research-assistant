@@ -13,21 +13,56 @@ function parseJSONResponse(text: string): Record<string, unknown> {
   return JSON.parse(cleaned);
 }
 
+function normalizeAnalysis(raw: Record<string, unknown>): AIAnalysis {
+  const bullCase = Array.isArray(raw.bullCase)
+    ? raw.bullCase.map(String)
+    : typeof raw.bullCase === "string"
+      ? raw.bullCase.split(/[|,\n]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  const bearCase = Array.isArray(raw.bearCase)
+    ? raw.bearCase.map(String)
+    : typeof raw.bearCase === "string"
+      ? raw.bearCase.split(/[|,\n]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  let priceTarget = typeof raw.priceTarget === "number"
+    ? raw.priceTarget
+    : typeof raw.priceTarget === "string"
+      ? parseFloat(raw.priceTarget.replace(/[^0-9.]/g, "")) || 0
+      : 0;
+
+  return {
+    confidenceScore: Math.min(100, Math.max(0, Number(raw.confidenceScore) || 50)),
+    sentiment: String(raw.sentiment || "neutral").toLowerCase(),
+    riskLevel: String(raw.riskLevel || "medium").toLowerCase(),
+    summary: String(raw.summary || ""),
+    keyCatalyst: String(raw.keyCatalyst || ""),
+    bullCase,
+    bearCase,
+    technicalSignal: String(raw.technicalSignal || "hold").toLowerCase(),
+    priceTarget,
+    volatilityNote: String(raw.volatilityNote || ""),
+  };
+}
+
 export async function generateAnalysis(
   ticker: string,
   quote: Record<string, unknown>
 ): Promise<AIAnalysis> {
+  const currency = (quote.currency as string) || "USD";
+  const symbol = currency === "INR" ? "₹" : "$";
   const prompt = `You are a senior equity analyst at Goldman Sachs analyzing ${ticker}.
-  
+
 Current Market Data:
-- Price: $${quote.price}
+- Price: ${symbol}${quote.price}
 - Change: ${quote.change} (${quote.changePercent}%)
-- Open: $${quote.open}
-- High: $${quote.high}
-- Low: $${quote.low}
-- Previous Close: $${quote.previousClose}
+- Open: ${symbol}${quote.open}
+- High: ${symbol}${quote.high}
+- Low: ${symbol}${quote.low}
+- Previous Close: ${symbol}${quote.previousClose}
 - Volume: ${quote.volume}
-${quote.marketCap ? `- Market Cap: $${(quote.marketCap as number / 1e9).toFixed(1)}B` : ""}
+${quote.marketCap ? `- Market Cap: ${symbol}${(quote.marketCap as number / 1e9).toFixed(1)}B` : ""}
 ${quote.pe ? `- P/E Ratio: ${quote.pe}` : ""}
 
 Provide a comprehensive analysis with:
@@ -36,10 +71,10 @@ Provide a comprehensive analysis with:
 3. riskLevel (low/medium/high)
 4. summary (2-3 sentences)
 5. keyCatalyst (main catalyst to watch)
-6. bullCase (3-4 reasons)
-7. bearCase (3-4 reasons)
+6. bullCase (array of 3-4 specific reasons)
+7. bearCase (array of 3-4 specific reasons)
 8. technicalSignal (buy/hold/sell based on technicals)
-9. priceTarget (12-month target price)
+9. priceTarget (12-month target price as a number)
 10. volatilityNote (1 sentence on expected volatility)
 
 Respond in this exact JSON format (no markdown, no code fences):
@@ -62,7 +97,8 @@ Respond in this exact JSON format (no markdown, no code fences):
   });
 
   const text = result.text || "";
-  return parseJSONResponse(text) as unknown as AIAnalysis;
+  const parsed = parseJSONResponse(text);
+  return normalizeAnalysis(parsed);
 }
 
 export async function generatePersonaAnalysis(
@@ -83,14 +119,26 @@ export async function generatePersonaAnalysis(
   const text = result.text || "";
   const parsed = parseJSONResponse(text);
 
+  const bullCase = Array.isArray(parsed.bullCase)
+    ? parsed.bullCase.map(String)
+    : typeof parsed.bullCase === "string"
+      ? parsed.bullCase.split(/[|,\n]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  const bearCase = Array.isArray(parsed.bearCase)
+    ? parsed.bearCase.map(String)
+    : typeof parsed.bearCase === "string"
+      ? parsed.bearCase.split(/[|,\n]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
   return {
     name: persona.name,
     philosophy: persona.philosophy,
     signal: (parsed.signal as string) || "hold",
     confidence: (parsed.confidence as number) || 50,
     summary: (parsed.summary as string) || "",
-    bullCase: (parsed.bullCase as string[]) || [],
-    bearCase: (parsed.bearCase as string[]) || [],
+    bullCase,
+    bearCase,
     keyMetrics: (parsed.keyMetrics as Record<string, number>) || {},
   };
 }

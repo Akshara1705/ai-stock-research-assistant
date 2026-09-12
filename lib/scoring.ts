@@ -191,7 +191,7 @@ export const INTERESTING_STOCKS = [
 ];
 
 export async function getTopOpportunities(
-  period: string = "daily"
+  limit: number = 20
 ): Promise<
   Array<{
     ticker: string;
@@ -203,13 +203,40 @@ export async function getTopOpportunities(
     sector?: string;
   }>
 > {
-  return INTERESTING_STOCKS.slice(0, 20).map((ticker) => ({
-    ticker,
-    name: ticker,
-    price: 0,
-    change: 0,
-    changePercent: 0,
-    score: Math.round(60 + Math.random() * 35),
-    sector: undefined,
-  }));
+  const { getQuote, getStockFinancials } = await import("./yahoo-finance");
+  const results: Array<{
+    ticker: string;
+    name: string;
+    price: number;
+    change: number;
+    changePercent: number;
+    score: number;
+    sector?: string;
+  }> = [];
+
+  for (const ticker of INTERESTING_STOCKS.slice(0, limit)) {
+    try {
+      const [quote, financials] = await Promise.all([
+        getQuote(ticker),
+        getStockFinancials(ticker),
+      ]);
+      const score = calculateOpportunityScore(
+        quote,
+        financials as Record<string, unknown> | null
+      );
+      results.push({
+        ticker,
+        name: quote.name,
+        price: quote.price,
+        change: quote.change,
+        changePercent: quote.changePercent,
+        score: score.overallScore,
+        sector: financials?.sector,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  return results.sort((a, b) => b.score - a.score);
 }

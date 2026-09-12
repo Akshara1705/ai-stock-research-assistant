@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import YahooFinance from "yahoo-finance2";
-
-const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] } as never);
+import { getRawQuote } from "@/lib/yahoo-finance";
+import { validateTicker, checkRateLimit, getClientIp } from "@/lib/validation";
+import { upsertStock, saveEarningsEvent } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`earnings:${ip}`, 30, 60000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const { searchParams } = new URL(request.url);
   const ticker = searchParams.get("ticker");
 
-  if (!ticker) {
-    return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
+  if (!validateTicker(ticker)) {
+    return NextResponse.json({ error: "Valid ticker is required" }, { status: 400 });
   }
 
   try {
-    const quote = await yf.quote(ticker);
-    const raw = quote as unknown as Record<string, unknown>;
+    const raw = await getRawQuote(ticker!);
 
     const earningsDate = raw.earningsDate
       ? Array.isArray(raw.earningsDate)
@@ -34,17 +39,32 @@ export async function GET(request: NextRequest) {
     if (earningsQuarterly && earningsQuarterly.length > 0) {
       const latest = earningsQuarterly[0];
       if (latest.actual !== undefined && latest.estimate !== undefined) {
+        const surprise = latest.surprise ?? ((latest.actual - latest.estimate) / Math.abs(latest.estimate) * 100);
         lastReport = {
           epsEstimate: latest.estimate,
           epsActual: latest.actual,
-          surprise: latest.surprise ?? ((latest.actual - latest.estimate) / Math.abs(latest.estimate) * 100),
+          surprise,
           reportDate: new Date(latest.date).toISOString().split("T")[0],
         };
+
+        upsertStock(ticker!).then((stock) => {
+          if (stock) {
+            const reportDate = new Date(latest.date);
+            saveEarningsEvent(stock.id, {
+              reportDate,
+              quarter: `Q${Math.ceil((reportDate.getMonth() + 1) / 3)}`,
+              year: reportDate.getFullYear(),
+              epsEstimate: latest.estimate,
+              epsActual: latest.actual,
+              surprise,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
       }
     }
 
     return NextResponse.json({
-      ticker: ticker.toUpperCase(),
+      ticker: ticker!.toUpperCase(),
       earningsDate,
       epsForward,
       trailingPE,
