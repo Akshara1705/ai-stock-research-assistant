@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { MemoPreview } from "@/components/memo/MemoPreview";
 import { Spinner } from "@/components/ui/Spinner";
-import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { FileText, AlertTriangle, RefreshCw } from "lucide-react";
 
 interface MemoData {
   id: string;
@@ -32,6 +34,8 @@ export default function MemoDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
+  const isTempId = id.startsWith("temp-");
+
   useEffect(() => {
     fetchMemo();
   }, [id]);
@@ -42,11 +46,13 @@ export default function MemoDetailPage({
       if (res.ok) {
         const data = await res.json();
         setMemo(data);
+      } else if (isTempId) {
+        setError("temp");
       } else {
-        setError("Memo not found");
+        setError("not_found");
       }
     } catch {
-      setError("Failed to load memo");
+      setError("network");
     } finally {
       setLoading(false);
     }
@@ -72,10 +78,44 @@ export default function MemoDetailPage({
       <div className="max-w-4xl mx-auto space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+        ) : error === "temp" ? (
+          <div className="text-center py-20">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-6 max-w-md mx-auto">
+              <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+              <h2 className="text-sm font-semibold text-white mb-2">Memo Not Persisted</h2>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                The memo was generated but could not be saved to the database. This may be a temporary issue.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={fetchMemo}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Retry
+                </Button>
+                <Link href="/memo">
+                  <Button variant="secondary">
+                    View All Memos
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
         ) : error ? (
           <div className="text-center py-20">
             <FileText className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <p className="text-red-400 text-xs font-mono">{error}</p>
+            <p className="text-red-400 text-xs font-mono mb-3">
+              {error === "not_found" ? "Memo not found. It may have been deleted." : "Failed to load memo."}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={fetchMemo} variant="secondary">
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Retry
+              </Button>
+              <Link href="/memo">
+                <Button variant="secondary">
+                  View All Memos
+                </Button>
+              </Link>
+            </div>
           </div>
         ) : memo ? (
           <MemoPreview memo={memo} onExportPDF={handleExportPDF} exporting={exporting} />
